@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"time"
+	
+	"github.com/paypal/load-watcher/pkg/exporter"
 	"github.com/paypal/load-watcher/pkg/watcher"
 	"github.com/paypal/load-watcher/pkg/watcher/api"
 	log "github.com/sirupsen/logrus"
@@ -40,11 +43,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to create client: %v", err)
 	}
-	metrics, err := client.GetLatestWatcherMetrics()
-	if err != nil {
-		log.Errorf("unable to get watcher metrics: %v", err)
-	}
-	log.Debugf("received metrics: %v", metrics)
+
+	// Register Prometheus exporter endpoint
+	exporter.RegisterHandlers()
+
+	// Periodically publish observed metrics to /metrics
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			metrics, err := client.GetLatestWatcherMetrics()
+			if err == nil && metrics != nil {
+				exporter.UpdateObserved(metrics)
+			} else if err != nil {
+				log.Debugf("exporter skipped update: %v", err)
+			}
+			<-ticker.C
+		}
+	}()
 
 	// Keep the watcher server up
 	select {}
