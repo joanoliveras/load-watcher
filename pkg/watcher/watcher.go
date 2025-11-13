@@ -39,6 +39,7 @@ import (
 const (
 	BaseUrl         = "/watcher"
 	HealthCheckUrl  = "/watcher/health"
+	WatchHostEnvKey = "WATCH_HOST"
 	FifteenMinutes  = "15m"
 	TenMinutes      = "10m"
 	FiveMinutes     = "5m"
@@ -63,6 +64,7 @@ type Watcher struct {
 	client        MetricsProviderClient
 	isStarted     bool // Indicates if the Watcher is started by calling StartWatching()
 	shutdown      chan os.Signal
+	watchHost     string // If set, only fetch metrics for this host
 }
 
 type Window struct {
@@ -108,6 +110,7 @@ type NodeMetrics struct {
 // NewWatcher Returns a new initialised Watcher
 func NewWatcher(client MetricsProviderClient) *Watcher {
 	sizePerWindow := 5
+	host, _ := os.LookupEnv(WatchHostEnvKey)
 	return &Watcher{
 		mutex:         sync.RWMutex{},
 		fifteenMinute: make([]WatcherMetrics, 0, sizePerWindow),
@@ -116,6 +119,7 @@ func NewWatcher(client MetricsProviderClient) *Watcher {
 		cacheSize:     sizePerWindow,
 		client:        client,
 		shutdown:      make(chan os.Signal, 1),
+		watchHost:     host,
 	}
 }
 
@@ -130,7 +134,17 @@ func (w *Watcher) StartWatching() {
 
 	fetchOnce := func(duration string) {
 		curWindow, metric := w.getCurrentWindow(duration)
-		hostMetrics, err := w.client.FetchAllHostsMetrics(curWindow)
+		var hostMetrics map[string][]Metric
+		var err error
+		if w.watchHost != "" {
+			var m []Metric
+			m, err = w.client.FetchHostMetrics(w.watchHost, curWindow)
+			if err == nil {
+				hostMetrics = map[string][]Metric{w.watchHost: m}
+			}
+		} else {
+			hostMetrics, err = w.client.FetchAllHostsMetrics(curWindow)
+		}
 
 		if err != nil {
 			log.Errorf("received error while fetching metrics: %v", err)
