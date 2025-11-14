@@ -40,6 +40,7 @@ const (
 	BaseUrl         = "/watcher"
 	HealthCheckUrl  = "/watcher/health"
 	WatchHostEnvKey = "WATCH_HOST"
+	WatchModeEnvKey = "WATCH_MODE"
 	FifteenMinutes  = "15m"
 	TenMinutes      = "10m"
 	FiveMinutes     = "5m"

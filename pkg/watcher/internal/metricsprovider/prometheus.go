@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/transport"
@@ -46,6 +47,7 @@ const (
 	DefaultPromAddress           = "http://prometheus-k8s:9090"
 	promStd                      = "stddev_over_time"
 	promAvg                      = "avg_over_time"
+	promLatest                   = "latest"
 	promCpuMetric                = "instance:node_cpu:ratio"
 	promMemMetric                = "instance:node_memory_utilisation:ratio"
 	promTransBandMetric          = "instance:node_network_transmit_bytes:rate:sum"
@@ -68,7 +70,8 @@ const (
 )
 
 type promClient struct {
-	client api.Client
+	client     api.Client
+	latestMode bool
 }
 
 func loadCAFile(filepath string) (*x509.CertPool, error) {
@@ -98,6 +101,11 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 	}
 	if opts.Address != "" {
 		promAddress = opts.Address
+	}
+	// Detect "latest" mode via env
+	var latestMode bool
+	if mode, ok := os.LookupEnv(watcher.WatchModeEnvKey); ok && strings.ToLower(mode) == "latest" {
+		latestMode = true
 	}
 
 	// Ignore TLS verify errors if InsecureSkipVerify is set
@@ -157,7 +165,7 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 		return nil, err
 	}
 
-	return promClient{client}, err
+	return promClient{client: client, latestMode: latestMode}, err
 }
 
 func (s promClient) Name() string {
@@ -168,10 +176,27 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 	var metricList []watcher.Metric
 	var anyerr error
 
+	metrics := []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
+		promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
+		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+
+	if s.latestMode {
+		for _, metric := range metrics {
+			promQuery := s.buildLatestQuery(host, metric)
+			promResults, err := s.getPromResults(promQuery)
+			if err != nil {
+				log.Errorf("error querying Prometheus for query %v: %v\n", promQuery, err)
+				anyerr = err
+				continue
+			}
+			curMetricMap := s.promResults2MetricMap(promResults, metric, promLatest, "1m")
+			metricList = append(metricList, curMetricMap[host]...)
+		}
+		return metricList, anyerr
+	}
+
 	for _, method := range []string{promAvg, promStd} {
-		for _, metric := range []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
-			promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
-			promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat} {
+		for _, metric := range metrics {
 			promQuery := s.buildPromQuery(host, metric, method, window.Duration)
 			promResults, err := s.getPromResults(promQuery)
 
@@ -194,10 +219,29 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 	hostMetrics := make(map[string][]watcher.Metric)
 	var anyerr error
 
+	metrics := []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
+		promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
+		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+
+	if s.latestMode {
+		for _, metric := range metrics {
+			promQuery := s.buildLatestQuery(allHosts, metric)
+			promResults, err := s.getPromResults(promQuery)
+			if err != nil {
+				log.Errorf("error querying Prometheus for query %v: %v\n", promQuery, err)
+				anyerr = err
+				continue
+			}
+			curMetricMap := s.promResults2MetricMap(promResults, metric, promLatest, "1m")
+			for k, v := range curMetricMap {
+				hostMetrics[k] = append(hostMetrics[k], v...)
+			}
+		}
+		return hostMetrics, anyerr
+	}
+
 	for _, method := range []string{promAvg, promStd} {
-		for _, metric := range []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
-			promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
-			promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat} {
+		for _, metric := range metrics {
 			promQuery := s.buildPromQuery(allHosts, metric, method, window.Duration)
 			promResults, err := s.getPromResults(promQuery)
 
@@ -243,6 +287,24 @@ func (s promClient) buildPromQuery(host string, metric string, method string, ro
 	}
 
 	return promQuery
+}
+
+func (s promClient) buildLatestQuery(host string, metric string) string {
+	isCtr := isCounterMetric(metric)
+	if host == allHosts {
+		if isCtr {
+			return fmt.Sprintf("rate(%s[1m])", metric)
+		}
+		return metric
+	}
+	if isCtr {
+		return fmt.Sprintf("rate(%s{%s=\"%s\"}[1m])", metric, hostMetricKey, host)
+	}
+	return fmt.Sprintf("%s{%s=\"%s\"}", metric, hostMetricKey, host)
+}
+
+func isCounterMetric(metric string) bool {
+	return strings.HasSuffix(metric, "_joules_total") || metric == promScaphHostJoules
 }
 
 func (s promClient) getPromResults(promQuery string) (model.Value, error) {
@@ -292,6 +354,8 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 		operator = watcher.Average
 	} else if method == promStd {
 		operator = watcher.Std
+	} else if method == promLatest {
+		operator = watcher.Latest
 	} else {
 		operator = watcher.UnknownOperator
 	}
