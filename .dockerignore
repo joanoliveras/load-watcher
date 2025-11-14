@@ -1,0 +1,10 @@
+.git
+ml-agent/
+**/*.pkl
+**/*.pt
+**/*.onnx
+**/*.ipynb
+tests/
+coverage/
+bin/
+.ssh/
