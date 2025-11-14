@@ -29,6 +29,10 @@ spec:
           value: Prometheus
         - name: METRICS_PROVIDER_ADDRESS
           value: http://prometheus-k8s.monitoring.svc:9090
+        - name: WATCH_MODE
+          value: latest
+        - name: WATCH_HOST
+          value: cloudskin-k8s-edge-worker-0.novalocal 
         ports:
         - containerPort: 2020
       affinity:
