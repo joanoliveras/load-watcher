@@ -38,7 +38,7 @@ spec:
         - name: WATCH_POD_REGEX
           value: torchserve-*
         - name: WATCH_MINIMAL
-          value: true
+          value: "true"
         ports:
         - containerPort: 2020
       affinity:
