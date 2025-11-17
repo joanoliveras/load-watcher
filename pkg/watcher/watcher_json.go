@@ -22,6 +22,33 @@ import (
 	"github.com/francoispqt/gojay"
 )
 
+// StringMap is a simple map[string]string JSON object encoder/decoder for gojay
+type StringMap map[string]string
+
+func (m *StringMap) MarshalJSONObject(enc *gojay.Encoder) {
+	for k, v := range *m {
+		enc.StringKey(k, v)
+	}
+}
+
+func (m *StringMap) IsNil() bool {
+	return m == nil
+}
+
+func (m *StringMap) UnmarshalJSONObject(dec *gojay.Decoder, k string) error {
+	var v string
+	if err := dec.String(&v); err != nil {
+		return err
+	}
+	if *m == nil {
+		*m = make(map[string]string)
+	}
+	(*m)[k] = v
+	return nil
+}
+
+func (m *StringMap) NKeys() int { return 0 }
+
 type Metrices []Metric
 
 func (s *Metrices) UnmarshalJSONArray(dec *gojay.Decoder) error {
@@ -98,6 +125,10 @@ func (m *Metric) MarshalJSONObject(enc *gojay.Encoder) {
 	enc.StringKey("operator", m.Operator)
 	enc.StringKey("rollup", m.Rollup)
 	enc.Float64Key("value", m.Value)
+	if len(m.Labels) > 0 {
+		sm := StringMap(m.Labels)
+		enc.ObjectKey("labels", &sm)
+	}
 }
 
 // IsNil checks if instance is nil
@@ -124,12 +155,20 @@ func (m *Metric) UnmarshalJSONObject(dec *gojay.Decoder, k string) error {
 	case "value":
 		return dec.Float64(&m.Value)
 
+	case "labels":
+		var sm StringMap
+		err := dec.Object(&sm)
+		if err == nil {
+			m.Labels = map[string]string(sm)
+		}
+		return err
+
 	}
 	return nil
 }
 
 // NKeys returns the number of keys to unmarshal
-func (m *Metric) NKeys() int { return 5 }
+func (m *Metric) NKeys() int { return 6 }
 
 // MarshalJSONObject implements MarshalerJSONObject
 func (m *NodeMetrics) MarshalJSONObject(enc *gojay.Encoder) {

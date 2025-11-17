@@ -80,6 +80,7 @@ type Metric struct {
 	Operator string  `json:"operator"`         // STD or AVE or SUM, etc.
 	Rollup   string  `json:"rollup,omitempty"` // Rollup used for metric calculation
 	Value    float64 `json:"value"`            // Value is expected to be in %
+	Labels   map[string]string `json:"labels,omitempty"` // Optional labels (e.g., pod)
 }
 
 type NodeMetricsMap map[string]NodeMetrics

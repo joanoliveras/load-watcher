@@ -315,9 +315,9 @@ func (s promClient) buildLatestQuery(host string, metric string) string {
 	switch metric {
 	case promKeplerHostPlatformJoulesIncr1m:
 		if host == allHosts {
-			return fmt.Sprintf("increase(%s[1m])", promKeplerHostPlatformJoules)
+			return fmt.Sprintf("sum by (instance) (increase(%s[1m]))", promKeplerHostPlatformJoules)
 		}
-		return fmt.Sprintf("increase(%s{%s=\"%s\"}[1m])", promKeplerHostPlatformJoules, hostMetricKey, host)
+		return fmt.Sprintf("sum by (instance) (increase(%s{%s=\"%s\"}[1m]))", promKeplerHostPlatformJoules, hostMetricKey, host)
 	case promContainerCpuRate1m:
 		selector := s.selectorLabels(host, "")
 		return fmt.Sprintf("sum by (pod,instance) (rate(container_cpu_usage_seconds_total%s[1m]))", selector)
@@ -332,12 +332,12 @@ func (s promClient) buildLatestQuery(host string, metric string) string {
 	isCtr := isCounterMetric(metric)
 	if host == allHosts {
 		if isCtr {
-			return fmt.Sprintf("rate(%s[1m])", metric)
+			return fmt.Sprintf("sum by (instance) (rate(%s[1m]))", metric)
 		}
 		return metric
 	}
 	if isCtr {
-		return fmt.Sprintf("rate(%s{%s=\"%s\"}[1m])", metric, hostMetricKey, host)
+		return fmt.Sprintf("sum by (instance) (rate(%s{%s=\"%s\"}[1m]))", metric, hostMetricKey, host)
 	}
 	return fmt.Sprintf("%s{%s=\"%s\"}", metric, hostMetricKey, host)
 }
@@ -434,6 +434,19 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 	case model.Vector:
 		for _, result := range promresults.(model.Vector) {
 			curMetric := watcher.Metric{Name: metric, Type: metricType, Operator: operator, Rollup: rollup, Value: float64(result.Value * 100)}
+			// For app-level metrics aggregated by (pod,instance), preserve pod label
+			if podLbl, ok := result.Metric["pod"]; ok {
+				if curMetric.Labels == nil {
+					curMetric.Labels = make(map[string]string)
+				}
+				curMetric.Labels["pod"] = string(podLbl)
+			}
+			if nsLbl, ok := result.Metric["namespace"]; ok {
+				if curMetric.Labels == nil {
+					curMetric.Labels = make(map[string]string)
+				}
+				curMetric.Labels["namespace"] = string(nsLbl)
+			}
 			curHost := string(result.Metric[hostMetricKey])
 			curMetrics[curHost] = append(curMetrics[curHost], curMetric)
 		}
