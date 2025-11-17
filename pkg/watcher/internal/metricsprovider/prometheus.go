@@ -57,8 +57,8 @@ const (
 	promMemMetric                = "instance:node_memory_utilisation:ratio"
 	promTransBandMetric          = "instance:node_network_transmit_bytes:rate:sum"
 	promTransBandDropMetric      = "instance:node_network_transmit_drop_excluding_lo:rate5m"
-	promRecBandMetric            = "instance:node_network_receive_bytes:rate:sum"
-	promRecBandDropMetric        = "instance:node_network_receive_drop_excluding_lo:rate5m"
+	//promRecBandMetric            = "instance:node_network_receive_bytes:rate:sum"
+	//promRecBandDropMetric        = "instance:node_network_receive_drop_excluding_lo:rate5m"
 	promDiskIOMetric             = "instance_device:node_disk_io_time_seconds:rate5m"
 	promScaphHostPower           = "scaph_host_power_microwatts"
 	promScaphHostJoules          = "scaph_host_energy_microjoules"
@@ -80,6 +80,7 @@ type promClient struct {
 	watchPod   string
 	watchNS    string
 	watchPodRx string
+	minimal    bool
 }
 
 func loadCAFile(filepath string) (*x509.CertPool, error) {
@@ -118,6 +119,10 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 	watchPod, _ := os.LookupEnv("WATCH_POD")
 	watchNS, _ := os.LookupEnv("WATCH_NAMESPACE")
 	watchPodRx, _ := os.LookupEnv("WATCH_POD_REGEX")
+	var minimal bool
+	if m, ok := os.LookupEnv("WATCH_MINIMAL"); ok && strings.ToLower(m) == "true" {
+		minimal = true
+	}
 
 	// Ignore TLS verify errors if InsecureSkipVerify is set
 	roundTripper := api.DefaultRoundTripper
@@ -176,7 +181,7 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 		return nil, err
 	}
 
-	return promClient{client: client, latestMode: latestMode, watchPod: watchPod, watchNS: watchNS, watchPodRx: watchPodRx}, err
+	return promClient{client: client, latestMode: latestMode, watchPod: watchPod, watchNS: watchNS, watchPodRx: watchPodRx, minimal: minimal}, err
 }
 
 func (s promClient) Name() string {
@@ -187,9 +192,27 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 	var metricList []watcher.Metric
 	var anyerr error
 
-	metrics := []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
-		promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
-		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+	var metrics []string
+	if s.latestMode && s.minimal {
+		// Minimal set for A1 agent
+		metrics = []string{
+			promCpuMetric,                         // node CPU
+			promKeplerHostPlatformJoules,          // node power via rate
+			promKeplerHostPlatformJoulesIncr1m,    // node energy via increase
+		}
+		if s.watchPod != "" || s.watchPodRx != "" {
+			metrics = append(metrics,
+				promContainerCpuRate1m,            // app CPU (pods)
+				promKeplerContainerJoulesRate1m,   // app power (pods)
+				promKeplerContainerJoulesIncr1m,   // app energy (pods)
+			)
+		}
+	} else {
+		metrics = []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric,
+			promRecBandMetric, promRecBandDropMetric, promDiskIOMetric, promScaphHostPower, promScaphHostJoules,
+			promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules, promKeplerHostPackageJoules,
+			promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+	}
 
 	if s.latestMode {
 		// In latest mode, also include explicit node energy (increase over 1m)
@@ -236,9 +259,26 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 	hostMetrics := make(map[string][]watcher.Metric)
 	var anyerr error
 
-	metrics := []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric, promRecBandMetric, promRecBandDropMetric,
-		promDiskIOMetric, promScaphHostPower, promScaphHostJoules, promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules,
-		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+	var metrics []string
+	if s.latestMode && s.minimal {
+		metrics = []string{
+			promCpuMetric,
+			promKeplerHostPlatformJoules,
+			promKeplerHostPlatformJoulesIncr1m,
+		}
+		if s.watchPod != "" || s.watchPodRx != "" {
+			metrics = append(metrics,
+				promContainerCpuRate1m,
+				promKeplerContainerJoulesRate1m,
+				promKeplerContainerJoulesIncr1m,
+			)
+		}
+	} else {
+		metrics = []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric,
+			promRecBandMetric, promRecBandDropMetric, promDiskIOMetric, promScaphHostPower, promScaphHostJoules,
+			promKeplerHostCoreJoules, promKeplerHostUncoreJoules, promKeplerHostDRAMJoules, promKeplerHostPackageJoules,
+			promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
+	}
 
 	if s.latestMode {
 		metrics = append(metrics, promKeplerHostPlatformJoulesIncr1m)
@@ -434,18 +474,20 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 	case model.Vector:
 		for _, result := range promresults.(model.Vector) {
 			curMetric := watcher.Metric{Name: metric, Type: metricType, Operator: operator, Rollup: rollup, Value: float64(result.Value * 100)}
-			// For app-level metrics aggregated by (pod,instance), preserve pod label
-			if podLbl, ok := result.Metric["pod"]; ok {
-				if curMetric.Labels == nil {
-					curMetric.Labels = make(map[string]string)
+			// Only add labels for app-level container metrics, not for node metrics
+			if metric == promContainerCpuRate1m || metric == promKeplerContainerJoulesRate1m || metric == promKeplerContainerJoulesIncr1m {
+				if podLbl, ok := result.Metric["pod"]; ok {
+					if curMetric.Labels == nil {
+						curMetric.Labels = make(map[string]string)
+					}
+					curMetric.Labels["pod"] = string(podLbl)
 				}
-				curMetric.Labels["pod"] = string(podLbl)
-			}
-			if nsLbl, ok := result.Metric["namespace"]; ok {
-				if curMetric.Labels == nil {
-					curMetric.Labels = make(map[string]string)
+				if nsLbl, ok := result.Metric["namespace"]; ok {
+					if curMetric.Labels == nil {
+						curMetric.Labels = make(map[string]string)
+					}
+					curMetric.Labels["namespace"] = string(nsLbl)
 				}
-				curMetric.Labels["namespace"] = string(nsLbl)
 			}
 			curHost := string(result.Metric[hostMetricKey])
 			curMetrics[curHost] = append(curMetrics[curHost], curMetric)
