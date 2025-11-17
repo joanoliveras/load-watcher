@@ -31,8 +31,12 @@ spec:
           value: http://prometheus-k8s.monitoring.svc:9090
         - name: WATCH_MODE
           value: latest
-        - name: WATCH_HOST
-          value: cloudskin-k8s-edge-worker-0.novalocal 
+#        - name: WATCH_HOST
+#          value: cloudskin-k8s-edge-worker-0.novalocal 
+        - name: WATCH_NAMESPACE
+          value: torchservetest
+        - name: WATCH_POD_REGEX
+          value: torchserve-*
         ports:
         - containerPort: 2020
       affinity:

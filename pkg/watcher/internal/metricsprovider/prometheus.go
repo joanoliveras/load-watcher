@@ -48,6 +48,11 @@ const (
 	promStd                      = "stddev_over_time"
 	promAvg                      = "avg_over_time"
 	promLatest                   = "latest"
+	// Pseudo metric names for latest-mode helpers
+	promKeplerHostPlatformJoulesIncr1m = "kepler_node_platform_joules_total__increase1m"
+	promContainerCpuRate1m             = "container_cpu_usage_seconds_total__rate1m"
+	promKeplerContainerJoulesRate1m    = "kepler_container_joules_total__rate1m"
+	promKeplerContainerJoulesIncr1m    = "kepler_container_joules_total__increase1m"
 	promCpuMetric                = "instance:node_cpu:ratio"
 	promMemMetric                = "instance:node_memory_utilisation:ratio"
 	promTransBandMetric          = "instance:node_network_transmit_bytes:rate:sum"
@@ -72,6 +77,9 @@ const (
 type promClient struct {
 	client     api.Client
 	latestMode bool
+	watchPod   string
+	watchNS    string
+	watchPodRx string
 }
 
 func loadCAFile(filepath string) (*x509.CertPool, error) {
@@ -107,6 +115,9 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 	if mode, ok := os.LookupEnv(watcher.WatchModeEnvKey); ok && strings.ToLower(mode) == "latest" {
 		latestMode = true
 	}
+	watchPod, _ := os.LookupEnv("WATCH_POD")
+	watchNS, _ := os.LookupEnv("WATCH_NAMESPACE")
+	watchPodRx, _ := os.LookupEnv("WATCH_POD_REGEX")
 
 	// Ignore TLS verify errors if InsecureSkipVerify is set
 	roundTripper := api.DefaultRoundTripper
@@ -165,7 +176,7 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 		return nil, err
 	}
 
-	return promClient{client: client, latestMode: latestMode}, err
+	return promClient{client: client, latestMode: latestMode, watchPod: watchPod, watchNS: watchNS, watchPodRx: watchPodRx}, err
 }
 
 func (s promClient) Name() string {
@@ -181,6 +192,12 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
 
 	if s.latestMode {
+		// In latest mode, also include explicit node energy (increase over 1m)
+		metrics = append(metrics, promKeplerHostPlatformJoulesIncr1m)
+		// If a specific pod is selected, add app-level metrics
+		if s.watchPod != "" {
+			metrics = append(metrics, promContainerCpuRate1m, promKeplerContainerJoulesRate1m, promKeplerContainerJoulesIncr1m)
+		}
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(host, metric)
 			promResults, err := s.getPromResults(promQuery)
@@ -224,6 +241,10 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 		promKeplerHostPackageJoules, promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
 
 	if s.latestMode {
+		metrics = append(metrics, promKeplerHostPlatformJoulesIncr1m)
+		if s.watchPod != "" {
+			metrics = append(metrics, promContainerCpuRate1m, promKeplerContainerJoulesRate1m, promKeplerContainerJoulesIncr1m)
+		}
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(allHosts, metric)
 			promResults, err := s.getPromResults(promQuery)
@@ -290,6 +311,24 @@ func (s promClient) buildPromQuery(host string, metric string, method string, ro
 }
 
 func (s promClient) buildLatestQuery(host string, metric string) string {
+	// Special pseudo metrics
+	switch metric {
+	case promKeplerHostPlatformJoulesIncr1m:
+		if host == allHosts {
+			return fmt.Sprintf("increase(%s[1m])", promKeplerHostPlatformJoules)
+		}
+		return fmt.Sprintf("increase(%s{%s=\"%s\"}[1m])", promKeplerHostPlatformJoules, hostMetricKey, host)
+	case promContainerCpuRate1m:
+		selector := s.selectorLabels(host, "")
+		return fmt.Sprintf("sum by (pod,instance) (rate(container_cpu_usage_seconds_total%s[1m]))", selector)
+	case promKeplerContainerJoulesRate1m:
+		selector := s.selectorLabels(host, "")
+		return fmt.Sprintf("sum by (pod,instance) (rate(kepler_container_joules_total%s[1m]))", selector)
+	case promKeplerContainerJoulesIncr1m:
+		selector := s.selectorLabels(host, "")
+		return fmt.Sprintf("sum by (pod,instance) (increase(kepler_container_joules_total%s[1m]))", selector)
+	}
+
 	isCtr := isCounterMetric(metric)
 	if host == allHosts {
 		if isCtr {
@@ -301,6 +340,30 @@ func (s promClient) buildLatestQuery(host string, metric string) string {
 		return fmt.Sprintf("rate(%s{%s=\"%s\"}[1m])", metric, hostMetricKey, host)
 	}
 	return fmt.Sprintf("%s{%s=\"%s\"}", metric, hostMetricKey, host)
+}
+
+func (s promClient) selectorLabels(host string, extra string) string {
+	labels := []string{}
+	if host != allHosts && host != "" {
+		labels = append(labels, fmt.Sprintf("%s=\"%s\"", hostMetricKey, host))
+	}
+	if s.watchNS != "" {
+		labels = append(labels, fmt.Sprintf("%s=\"%s\"", "namespace", s.watchNS))
+	}
+	// Prefer regex if provided; else exact pod match if provided
+	if s.watchPodRx != "" {
+		labels = append(labels, fmt.Sprintf("%s=~\"%s\"", "pod", s.watchPodRx))
+	} else if s.watchPod != "" {
+		// Some metrics use label "pod" (k8s), others "pod_name" (older exporters). Prefer pod.
+		labels = append(labels, fmt.Sprintf("%s=\"%s\"", "pod", s.watchPod))
+	}
+	if extra != "" {
+		labels = append(labels, extra)
+	}
+	if len(labels) == 0 {
+		return ""
+	}
+	return "{" + strings.Join(labels, ",") + "}"
 }
 
 func isCounterMetric(metric string) bool {
@@ -347,7 +410,14 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 		promRecBandMetric, promRecBandDropMetric:
 		metricType = watcher.Bandwidth
 	default:
-		metricType = watcher.Unknown
+		// Heuristics for added pseudo metrics
+		if strings.Contains(metric, "_joules") {
+			metricType = watcher.Energy
+		} else if strings.Contains(metric, "cpu") {
+			metricType = watcher.CPU
+		} else {
+			metricType = watcher.Unknown
+		}
 	}
 
 	if method == promAvg {
