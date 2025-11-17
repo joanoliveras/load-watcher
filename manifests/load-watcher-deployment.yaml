@@ -36,7 +36,7 @@ spec:
         - name: WATCH_NAMESPACE
           value: torchservetest
         - name: WATCH_POD_REGEX
-          value: torchserve-*
+          value: torchserve-.*
         - name: WATCH_MINIMAL
           value: "true"
         ports:

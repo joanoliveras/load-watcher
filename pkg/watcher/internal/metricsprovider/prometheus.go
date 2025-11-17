@@ -230,7 +230,7 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 				continue
 			}
 			curMetricMap := s.promResults2MetricMap(promResults, metric, promLatest, "1m")
-			metricList = append(metricList, curMetricMap[host]...)
+			metricList = append(metricList, dedupMetrics(curMetricMap[host])...)
 		}
 		return metricList, anyerr
 	}
@@ -247,7 +247,7 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 			}
 
 			curMetricMap := s.promResults2MetricMap(promResults, metric, method, window.Duration)
-			metricList = append(metricList, curMetricMap[host]...)
+			metricList = append(metricList, dedupMetrics(curMetricMap[host])...)
 		}
 	}
 
@@ -295,7 +295,7 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 			}
 			curMetricMap := s.promResults2MetricMap(promResults, metric, promLatest, "1m")
 			for k, v := range curMetricMap {
-				hostMetrics[k] = append(hostMetrics[k], v...)
+				hostMetrics[k] = append(hostMetrics[k], dedupMetrics(v)...)
 			}
 		}
 		return hostMetrics, anyerr
@@ -315,7 +315,7 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 			curMetricMap := s.promResults2MetricMap(promResults, metric, method, window.Duration)
 
 			for k, v := range curMetricMap {
-				hostMetrics[k] = append(hostMetrics[k], v...)
+				hostMetrics[k] = append(hostMetrics[k], dedupMetrics(v)...)
 			}
 		}
 	}
@@ -497,4 +497,27 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 	}
 
 	return curMetrics
+}
+
+// dedupMetrics removes duplicates by (name,pod) key within a slice.
+func dedupMetrics(in []watcher.Metric) []watcher.Metric {
+	if len(in) <= 1 {
+		return in
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := make([]watcher.Metric, 0, len(in))
+	for _, m := range in {
+		key := m.Name
+		if m.Labels != nil {
+			if pod, ok := m.Labels["pod"]; ok {
+				key += "|pod=" + pod
+			}
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, m)
+	}
+	return out
 }
