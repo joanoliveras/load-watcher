@@ -39,6 +39,8 @@ spec:
           value: torchserve-.*
         - name: WATCH_MINIMAL
           value: "true"
+        - name: WATCH_RECORDING_RULES
+          value: "true"
         ports:
         - containerPort: 2020
       affinity:

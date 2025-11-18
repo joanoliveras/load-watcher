@@ -81,6 +81,8 @@ type promClient struct {
 	watchNS    string
 	watchPodRx string
 	minimal    bool
+	useRules   bool
+	includeTS  bool
 }
 
 func loadCAFile(filepath string) (*x509.CertPool, error) {
@@ -122,6 +124,14 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 	var minimal bool
 	if m, ok := os.LookupEnv("WATCH_MINIMAL"); ok && strings.ToLower(m) == "true" {
 		minimal = true
+	}
+	var useRules bool
+	if u, ok := os.LookupEnv("WATCH_RECORDING_RULES"); ok && strings.ToLower(u) == "true" {
+		useRules = true
+	}
+	var includeTS bool
+	if t, ok := os.LookupEnv("WATCH_INCLUDE_TS"); ok && strings.ToLower(t) == "true" {
+		includeTS = true
 	}
 
 	// Ignore TLS verify errors if InsecureSkipVerify is set
@@ -181,7 +191,16 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 		return nil, err
 	}
 
-	return promClient{client: client, latestMode: latestMode, watchPod: watchPod, watchNS: watchNS, watchPodRx: watchPodRx, minimal: minimal}, err
+	return promClient{
+		client:     client,
+		latestMode: latestMode,
+		watchPod:   watchPod,
+		watchNS:    watchNS,
+		watchPodRx: watchPodRx,
+		minimal:    minimal,
+		useRules:   useRules,
+		includeTS:  includeTS,
+	}, err
 }
 
 func (s promClient) Name() string {
@@ -195,17 +214,35 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 	var metrics []string
 	if s.latestMode && s.minimal {
 		// Minimal set for A1 agent
-		metrics = []string{
-			promCpuMetric,                         // node CPU
-			promKeplerHostPlatformJoules,          // node power via rate
-			promKeplerHostPlatformJoulesIncr1m,    // node energy via increase
-		}
-		if s.watchPod != "" || s.watchPodRx != "" {
-			metrics = append(metrics,
-				promContainerCpuRate1m,            // app CPU (pods)
-				promKeplerContainerJoulesRate1m,   // app power (pods)
-				promKeplerContainerJoulesIncr1m,   // app energy (pods)
-			)
+		if s.useRules {
+			metrics = []string{
+				ruleNodeCpuByNode,
+				ruleNodePowerByNode,
+				ruleNodeEnergyByNode,
+			}
+			if s.watchPod != "" || s.watchPodRx != "" {
+				metrics = append(metrics,
+					ruleAppCpuTorchServe,
+					ruleAppPowerTorchServe,
+					ruleAppEnergyTorchServe,
+				)
+				if s.includeTS {
+					metrics = append(metrics, ruleTsLatencyMs, ruleTsThroughputRps)
+				}
+			}
+		} else {
+			metrics = []string{
+				promCpuMetric,                         // node CPU
+				promKeplerHostPlatformJoules,          // node power via rate
+				promKeplerHostPlatformJoulesIncr1m,    // node energy via increase
+			}
+			if s.watchPod != "" || s.watchPodRx != "" {
+				metrics = append(metrics,
+					promContainerCpuRate1m,            // app CPU (pods)
+					promKeplerContainerJoulesRate1m,   // app power (pods)
+					promKeplerContainerJoulesIncr1m,   // app energy (pods)
+				)
+			}
 		}
 	} else {
 		metrics = []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric,
@@ -343,6 +380,45 @@ func (s promClient) buildPromQuery(host string, metric string, method string, ro
 func (s promClient) buildLatestQuery(host string, metric string) string {
 	// Special pseudo metrics
 	switch metric {
+	// Recording rule handling (node-level)
+	case ruleNodeCpuByNode, ruleNodePowerByNode, ruleNodeEnergyByNode:
+		if host == allHosts || host == "" {
+			return metric
+		}
+		return fmt.Sprintf("%s{%s=\"%s\"}", metric, hostMetricKey, host)
+	// Recording rule handling (app-level TorchServe)
+	case ruleAppCpuTorchServe, ruleAppPowerTorchServe, ruleAppEnergyTorchServe:
+		// Build OR between pod and pod_name label keys, include namespace if provided
+		nsFilter := ""
+		if s.watchNS != "" {
+			nsFilter = fmt.Sprintf(",namespace=\"%s\"", s.watchNS)
+		}
+		podRe := s.watchPodRx
+		if podRe == "" && s.watchPod != "" {
+			podRe = "^" + s.watchPod + "$"
+		}
+		if podRe == "" {
+			// No pod filter, return rule as-is
+			return metric
+		}
+		left := fmt.Sprintf("%s{%s=~\"%s\"%s}", metric, "pod", podRe, nsFilter)
+		right := fmt.Sprintf("%s{%s=~\"%s\"%s}", metric, "pod_name", podRe, nsFilter)
+		return fmt.Sprintf("sum by (pod,instance) ((%s) or (%s))", left, right)
+	// Recording rule handling (TorchServe TS metrics)
+	case ruleTsLatencyMs, ruleTsThroughputRps:
+		nsFilter := ""
+		if s.watchNS != "" {
+			nsFilter = fmt.Sprintf(",namespace=\"%s\"", s.watchNS)
+		}
+		podRe := s.watchPodRx
+		if podRe == "" && s.watchPod != "" {
+			podRe = "^" + s.watchPod + "$"
+		}
+		if podRe == "" {
+			return metric
+		}
+		// TS usually uses label "pod"
+		return fmt.Sprintf("%s{%s=~\"%s\"%s}", metric, "pod", podRe, nsFilter)
 	case promKeplerHostPlatformJoulesIncr1m:
 		if host == allHosts {
 			return fmt.Sprintf("sum by (instance) (increase(%s[1m]))", promKeplerHostPlatformJoules)
