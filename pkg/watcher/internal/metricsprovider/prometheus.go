@@ -301,17 +301,35 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 
 	var metrics []string
 	if s.latestMode && s.minimal {
-		metrics = []string{
-			promCpuMetric,
-			promKeplerHostPlatformJoules,
-			promKeplerHostPlatformJoulesIncr1m,
-		}
-		if s.watchPod != "" || s.watchPodRx != "" {
-			metrics = append(metrics,
-				promContainerCpuRate1m,
-				promKeplerContainerJoulesRate1m,
-				promKeplerContainerJoulesIncr1m,
-			)
+		if s.useRules {
+			metrics = []string{
+				ruleNodeCpuByNode,
+				ruleNodePowerByNode,
+				ruleNodeEnergyByNode,
+			}
+			if s.watchPod != "" || s.watchPodRx != "" {
+				metrics = append(metrics,
+					ruleAppCpuTorchServe,
+					ruleAppPowerTorchServe,
+					ruleAppEnergyTorchServe,
+				)
+				if s.includeTS {
+					metrics = append(metrics, ruleTsLatencyMs, ruleTsThroughputRps)
+				}
+			}
+		} else {
+			metrics = []string{
+				promCpuMetric,
+				promKeplerHostPlatformJoules,
+				promKeplerHostPlatformJoulesIncr1m,
+			}
+			if s.watchPod != "" || s.watchPodRx != "" {
+				metrics = append(metrics,
+					promContainerCpuRate1m,
+					promKeplerContainerJoulesRate1m,
+					promKeplerContainerJoulesIncr1m,
+				)
+			}
 		}
 	} else {
 		metrics = []string{promCpuMetric, promMemMetric, promTransBandMetric, promTransBandDropMetric,
