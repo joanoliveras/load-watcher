@@ -566,7 +566,8 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 	switch promresults.(type) {
 	case model.Vector:
 		for _, result := range promresults.(model.Vector) {
-			curMetric := watcher.Metric{Name: metric, Type: metricType, Operator: operator, Rollup: rollup, Value: float64(result.Value * 100)}
+			// Pass through raw PromQL numeric value without scaling
+			curMetric := watcher.Metric{Name: metric, Type: metricType, Operator: operator, Rollup: rollup, Value: float64(result.Value)}
 			// Only add labels for app-level container metrics, not for node metrics
 			if metric == promContainerCpuRate1m || metric == promKeplerContainerJoulesRate1m || metric == promKeplerContainerJoulesIncr1m {
 				if podLbl, ok := result.Metric["pod"]; ok {
