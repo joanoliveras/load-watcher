@@ -215,12 +215,6 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 	}
 
 	if s.latestMode {
-		// In latest mode, also include explicit node energy (increase over 1m)
-		metrics = append(metrics, promKeplerHostPlatformJoulesIncr1m)
-		// If a specific pod is selected, add app-level metrics
-		if s.watchPod != "" {
-			metrics = append(metrics, promContainerCpuRate1m, promKeplerContainerJoulesRate1m, promKeplerContainerJoulesIncr1m)
-		}
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(host, metric)
 			promResults, err := s.getPromResults(promQuery)
@@ -281,10 +275,6 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 	}
 
 	if s.latestMode {
-		metrics = append(metrics, promKeplerHostPlatformJoulesIncr1m)
-		if s.watchPod != "" {
-			metrics = append(metrics, promContainerCpuRate1m, promKeplerContainerJoulesRate1m, promKeplerContainerJoulesIncr1m)
-		}
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(allHosts, metric)
 			promResults, err := s.getPromResults(promQuery)
