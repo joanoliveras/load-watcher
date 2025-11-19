@@ -87,7 +87,6 @@ const (
 
 type promClient struct {
 	client     api.Client
-	latestMode bool
 	watchPodRx string
 	greenanalyse    bool
 	includeTS  bool
@@ -121,11 +120,6 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 	}
 	if opts.Address != "" {
 		promAddress = opts.Address
-	}
-	// Detect "latest" mode via env
-	var latestMode bool
-	if mode, ok := os.LookupEnv(watcher.WatchModeEnvKey); ok && strings.ToLower(mode) == "latest" {
-		latestMode = true
 	}
 	watchPodRx, _ := os.LookupEnv("WATCH_POD_REGEX")
 	var greenanalyse bool
@@ -201,7 +195,6 @@ func NewPromClient(opts watcher.MetricsProviderOpts) (watcher.MetricsProviderCli
 
 	return promClient{
 		client:     client,
-		latestMode: latestMode,
 		watchPodRx: watchPodRx,
 		greenanalyse:    greenanalyse,
 		includeTS:  includeTS,
@@ -218,7 +211,7 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 	var anyerr error
 
 	var metrics []string
-	if s.latestMode && s.greenanalyse {
+	if s.greenanalyse {
 		// greenanalyse set for A1 agent: always use recording rules
 		metrics = []string{
 			ruleNodeCpuByNode,
@@ -242,7 +235,7 @@ func (s promClient) FetchHostMetrics(host string, window *watcher.Window) ([]wat
 			promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
 	}
 
-	if s.latestMode {
+	if s.greenanalyse {
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(host, metric)
 			promResults, err := s.getPromResults(promQuery)
@@ -282,7 +275,7 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 	var anyerr error
 
 	var metrics []string
-	if s.latestMode && s.greenanalyse {
+	if s.greenanalyse {
 		metrics = []string{
 			ruleNodeCpuByNode,
 			ruleNodePowerByNode,
@@ -308,7 +301,7 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 			promKeplerHostOtherJoules, promKeplerHostGPUJoules, promKeplerHostPlatformJoules, promKeplerHostEnergyStat}
 	}
 
-	if s.latestMode {
+	if s.greenanalyse {
 		for _, metric := range metrics {
 			promQuery := s.buildLatestQuery(allHosts, metric)
 			promResults, err := s.getPromResults(promQuery)
