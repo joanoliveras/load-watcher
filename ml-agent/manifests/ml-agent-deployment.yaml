@@ -1,8 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-agent
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ml-agent
-  namespace: default
+  name: ml-agent-deployment
+  namespace: ml-agent
   labels:
     app: ml-agent
 spec:
@@ -17,8 +22,8 @@ spec:
     spec:
       containers:
         - name: ml-agent
-          image: ml-agent:latest # replace with your registry/image:tag
-          imagePullPolicy: IfNotPresent
+          image: registry.gitlab.bsc.es/datacentric-computing/cloudskin-project/cloudskin-registry/ml-agent:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:
@@ -51,7 +56,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: ml-agent
-  namespace: default
+  namespace: ml-agent
   labels:
     app: ml-agent
 spec:
