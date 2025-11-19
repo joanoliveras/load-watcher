@@ -33,13 +33,13 @@ spec:
           value: latest
 #        - name: WATCH_HOST
 #          value: cloudskin-k8s-edge-worker-0.novalocal 
-#        - name: WATCH_NAMESPACE
-#          value: torchservetest
         - name: WATCH_POD_REGEX
           value: torchserve-.*
-        - name: WATCH_MINIMAL
+        - name: WATCH_GREENANALYSE
           value: "true"
-        - name: WATCH_RECORDING_RULES
+        - name: WATCH_INCLUDE_TS
+          value: "true"
+        - name: WATCH_INCLUDE_USERS
           value: "true"
         ports:
         - containerPort: 2020
