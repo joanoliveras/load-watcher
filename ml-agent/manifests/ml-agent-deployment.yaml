@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-agent
+  namespace: default
+  labels:
+    app: ml-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-agent
+  template:
+    metadata:
+      labels:
+        app: ml-agent
+    spec:
+      containers:
+        - name: ml-agent
+          image: ml-agent:latest # replace with your registry/image:tag
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ML_AGENT_MODEL_PATH
+              value: /app/app/models/A1/MLP/mlp_multioutput_scoredpairs_scaled_onehotencoded.pkl
+            # Optional: override node mapping: "name1:1,name2:2,name3:3,name4:4"
+            # - name: ML_AGENT_NODE_MAP
+            #   value: ""
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-agent
+  namespace: default
+  labels:
+    app: ml-agent
+spec:
+  selector:
+    app: ml-agent
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
+
+
