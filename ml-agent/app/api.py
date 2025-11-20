@@ -25,20 +25,15 @@ def healthz() -> Dict[str, str]:
 async def predict(request: Request) -> PredictResponse:
     """
     Accepts a Load Watcher JSON payload in the request body.
-    The agent infers the current host by finding which node bucket contains torchserve metrics.
+    The agent infers the current host in where the app is running by finding which node bucket contains torchserve metrics.
     """
     try:
         payload: Dict[str, Any] = await request.json()
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {exc}") from exc
-
-    if not isinstance(payload, dict):
-        raise HTTPException(status_code=400, detail="Payload must be a JSON object")
-
     try:
         result = predictor.predict_for_all_targets(
-            load_watcher_payload=payload,
-            current_host_name=None,
+            load_watcher_payload=payload
         )
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Inference failed: {exc}") from exc

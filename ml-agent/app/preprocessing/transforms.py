@@ -113,7 +113,6 @@ def detect_current_host_with_app_metrics(node_metrics_map: Dict) -> Optional[str
 
 def build_feature_rows_from_payload(
     payload: Dict,
-    current_host_name: Optional[str],
     node_name_to_id: Dict[str, int],
     target_node_ids: Iterable[int] | None = None,
 ) -> pd.DataFrame:
@@ -123,9 +122,9 @@ def build_feature_rows_from_payload(
     node_metrics_map = payload.get("data", {}).get("NodeMetricsMap", {}) or {}
 
     # Determine current host if not provided
-    host_name = current_host_name or detect_current_host_with_app_metrics(node_metrics_map)
+    host_name = detect_current_host_with_app_metrics(node_metrics_map)
     if not host_name:
-        raise ValueError("Unable to determine current_host from payload; please provide it explicitly.")
+        raise ValueError("Unable to determine current_host from payload.")
 
     # Base features from app-level metrics and the selected source node
     base_app = _extract_app_metrics(node_metrics_map, host_name)

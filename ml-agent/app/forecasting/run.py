@@ -19,7 +19,6 @@ class ModelPredictor:
     def predict_for_all_targets(
         self,
         load_watcher_payload: Dict,
-        current_host_name: str | None = None,
         target_node_ids: Iterable[int] | None = None,
     ) -> Dict[int, List[float]]:
         """
@@ -29,7 +28,6 @@ class ModelPredictor:
         target_ids = list(target_node_ids) if target_node_ids is not None else VALID_NODE_IDS
         features: pd.DataFrame = build_feature_rows_from_payload(
             payload=load_watcher_payload,
-            current_host_name=current_host_name,
             node_name_to_id=self.node_name_to_id,
             target_node_ids=target_ids,
         )
