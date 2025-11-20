@@ -1,20 +1,17 @@
-{"timestamp":1763631361,"window":{"duration":"15m","start":1763630461,"end":1763631361},"source":"Prometheus","data":{"NodeMetricsMap":{"cloudskin-k8s-worker-1.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":0}],"tags":{},"metadata":{"dataCenter":""}},"cloudskin-k8s-control-plane-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":164.99999999966045},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":9899.999999998774}],"tags":{},"metadata":{"dataCenter":""}},"cloudskin-k8s-edge-worker-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":18.000000000029104},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":1079.9999999998315}],"tags":{},"metadata":{"dataCenter":""}},
-"cloudskin-k8s-edge-worker-2.novalocal":{
-    "metrics":[
-        {"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},
-        {"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":21.000000000033953},
-        {"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":1260.0000000001226}],
-    "tags":{},
-    "metadata":{"dataCenter":""}},
-"":{
-    "metrics":[
-        {"name":"kepler:container_torchserve_cpu_rate:1m","type":"CPU","operator":"Latest","rollup":"1m","value":0},
-        {"name":"kepler:container_torchserve_watt:1m","type":"Unknown","operator":"Latest","rollup":"1m","value":4.9999999999954525},
-        {"name":"kepler:container_torchserve_joules:1m","type":"Energy","operator":"Latest","rollup":"1m","value":300.0000000000861},
-        {"name":"ts:latency:1m:ms","type":"Unknown","operator":"Latest","rollup":"1m","value":49.60639214409722},
-        {"name":"ts:throughput:1m:rps","type":"Unknown","operator":"Latest","rollup":"1m","value":3},
-        {"name":"locust_current_users","type":"Unknown","operator":"Latest","rollup":"1m","value":31}],
-    "tags":{},
-    "metadata":{"dataCenter":""}},
-
-"cloudskin-k8s-edge-worker-1.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":35.99999999975504},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":2159.999999999663}],"tags":{},"metadata":{"dataCenter":""}},"cloudskin-k8s-worker-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":0}],"tags":{},"metadata":{"dataCenter":""}}}}}
+{"timestamp":1763634954,"window":{"duration":"15m","start":1763634054,"end":1763634954},"source":"Prometheus","data":{"NodeMetricsMap":{
+    "cloudskin-k8s-edge-worker-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":18.000000000029104},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":1079.9999999998315}],"tags":{},"metadata":{"dataCenter":""}},
+    "cloudskin-k8s-edge-worker-2.novalocal":{
+        "metrics":[
+            {"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},
+            {"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":21.000000000033953},
+            {"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":1260.0000000001226},
+            {"name":"kepler:container_torchserve_cpu_rate:1m","type":"CPU","operator":"Latest","rollup":"1m","value":0},
+            {"name":"kepler:container_torchserve_watt:1m","type":"Unknown","operator":"Latest","rollup":"1m","value":4.9999999999954525},
+            {"name":"kepler:container_torchserve_joules:1m","type":"Energy","operator":"Latest","rollup":"1m","value":299.99999999996646},
+            {"name":"ts:latency:1m:ms","type":"Unknown","operator":"Latest","rollup":"1m","value":52.51913714599609},
+            {"name":"ts:throughput:1m:rps","type":"Unknown","operator":"Latest","rollup":"1m","value":2.6666666666666665},
+            {"name":"locust_current_users","type":"Unknown","operator":"Latest","rollup":"1m","value":1}],"tags":{},"metadata":{"dataCenter":""}},
+    "cloudskin-k8s-edge-worker-1.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":36.00000000005821},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":2160.0000000006203}],"tags":{},"metadata":{"dataCenter":""}},
+    "cloudskin-k8s-worker-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":0}],"tags":{},"metadata":{"dataCenter":""}},
+    "cloudskin-k8s-worker-1.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":0}],"tags":{},"metadata":{"dataCenter":""}},
+    "cloudskin-k8s-control-plane-0.novalocal":{"metrics":[{"name":"kepler:cpu_rate:1m:by_node","type":"CPU","operator":"Latest","rollup":"1m","value":0},{"name":"kepler:node_platform_watt:1m:by_node","type":"Unknown","operator":"Latest","rollup":"1m","value":164.99999999966045},{"name":"kepler:node_platform_joules:1m:by_node","type":"Energy","operator":"Latest","rollup":"1m","value":9899.999999998774}],"tags":{},"metadata":{"dataCenter":""}}}}}
