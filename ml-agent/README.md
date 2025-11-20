@@ -49,7 +49,9 @@ Response:
 Environment overrides:
 - `ML_AGENT_MODEL_PATH`: path to the sklearn model `.pkl`. Defaults to the packaged model under `app/models/A1/MLP/`.
 - `ML_AGENT_NODE_MAP`: override node-name→id mapping, e.g. `name1:1,name2:2,name3:3,name4:4`.
-- `ML_AGENT_PORT`: default 8080.
+ 
+Ports:
+- The app always listens on port 8080. Kubernetes Services map to it via `targetPort: 8080`.
 
 ## Container image
 
