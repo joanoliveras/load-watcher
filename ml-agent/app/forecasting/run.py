@@ -51,6 +51,8 @@ class ModelPredictor:
         # Ensure 2D shape: (rows, outputs)
         if y_array.ndim == 1:
             y_array = y_array.reshape(-1, 1)
+        # Clamp negatives to zero
+        y_array = np.maximum(y_array, 0.0)
         results: Dict[int, List[float]] = {
             int(tgt): [float(x) for x in y_array[idx].tolist()]
             for idx, tgt in enumerate(target_ids)
