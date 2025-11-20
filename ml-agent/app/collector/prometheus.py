@@ -1,3 +1,6 @@
+"""
+This is my colleague script. Currently unused by us, good for reference.
+"""
 import logging
 import math
 import random
