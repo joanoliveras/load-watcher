@@ -378,32 +378,33 @@ func (s promClient) buildLatestQuery(host string, metric string) string {
 		return fmt.Sprintf("%s{%s=\"%s\"}", metric, hostMetricKey, host)
 	// Recording rule handling (app-level TorchServe)
 	case ruleAppCpuTorchServe, ruleAppPowerTorchServe, ruleAppEnergyTorchServe:
-		// Build OR between pod and pod_name label keys, include namespace if provided
+		// Map TorchServe app container metrics to node using kube_pod_info, dedup per (pod,node).
 		if s.watchPodRx == "" {
-			// No pod filter, return rule as-is
 			return metric
 		}
-		left := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
-		right := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod_name", s.watchPodRx)
-		return fmt.Sprintf("sum by (pod,instance) ((%s) or (%s))", left, right)
+		leftPod := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
+		leftPodName := fmt.Sprintf("label_replace(%s{%s=~\"%s\"},\"pod\",\"$1\",\"pod_name\",\"(.*)\")", metric, "pod_name", s.watchPodRx)
+		left := fmt.Sprintf("(%s) or (%s)", leftPod, leftPodName)
+		right := fmt.Sprintf("max by (pod,node) (kube_pod_info{%s=~\"%s\"})", "pod", s.watchPodRx)
+		return fmt.Sprintf("sum by (node) ((%s) * on(pod) group_left(node) (%s))", left, right)
 	// Recording rule handling (TorchServe TS metrics)
 	case ruleTsLatencyMs, ruleTsThroughputRps:
 		if s.watchPodRx == "" {
 			return metric
 		}
-		// Attach instance (node) label to TS metrics by joining with container metrics that carry instance.
-		// We take max by (pod,instance) to get a stable label set, then group_left to project instance onto TS series.
-		left := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
-		right := "max by (pod,instance) (container_cpu_usage_seconds_total)"
-		return fmt.Sprintf("sum by (instance) ((%s) * on(pod) group_left(instance) (%s))", left, right)
+		// Normalize to 'pod' label and project node via kube_pod_info.
+		leftPod := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
+		leftPodName := fmt.Sprintf("label_replace(%s{%s=~\"%s\"},\"pod\",\"$1\",\"pod_name\",\"(.*)\")", metric, "pod_name", s.watchPodRx)
+		left := fmt.Sprintf("(%s) or (%s)", leftPod, leftPodName)
+		right := fmt.Sprintf("max by (pod,node) (kube_pod_info{%s=~\"%s\"})", "pod", s.watchPodRx)
+		return fmt.Sprintf("sum by (node) ((%s) * on(pod) group_left(node) (%s))", left, right)
 	case locustCurrentUsers:
-		// Replicate global users count to the TorchServe node(s) by joining against instances running the watched pod(s).
+		// Replicate global users count to nodes hosting the watched pod(s) by using kube_pod_info.
 		if s.watchPodRx == "" {
 			return "sum(locust_current_users)"
 		}
-		// Build a 0/1 mask per instance for nodes hosting the watched pod(s), then multiply by the scalar sum.
-		mask := fmt.Sprintf("count by (instance) (container_cpu_usage_seconds_total{%s=~\"%s\"}) > bool 0", "pod", s.watchPodRx)
-		return fmt.Sprintf("sum(locust_current_users) * on() group_left(instance) (%s)", mask)
+		mask := fmt.Sprintf("count by (node) (max by (pod,node) (kube_pod_info{%s=~\"%s\"})) > bool 0", "pod", s.watchPodRx)
+		return fmt.Sprintf("sum(locust_current_users) * on() group_left(node) (%s)", mask)
 	case promKeplerHostPlatformJoulesIncr1m:
 		if host == allHosts {
 			return fmt.Sprintf("sum by (instance) (increase(%s[1m]))", promKeplerHostPlatformJoules)
