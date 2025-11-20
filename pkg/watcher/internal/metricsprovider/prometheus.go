@@ -281,7 +281,7 @@ func (s promClient) FetchAllHostsMetrics(window *watcher.Window) (map[string][]w
 			ruleNodePowerByNode,
 			ruleNodeEnergyByNode,
 		}
-		if s.watchPod != "" || s.watchPodRx != "" {
+		if s.watchPodRx != "" {
 			metrics = append(metrics,
 				ruleAppCpuTorchServe,
 				ruleAppPowerTorchServe,
