@@ -55,7 +55,7 @@ VALID_NODE_IDS: List[int] = [1, 2, 3, 4]
 def get_model_path() -> str:
     return os.environ.get(
         "ML_AGENT_MODEL_PATH",
-        "/home/rocky/k8s_resources/load-watcher/ml-agent/app/models/A1/MLP/mlp_multioutput_scoredpairs_scaled_onehotencoded.pkl",
+        "/app/app/models/A1/MLP/mlp_multioutput_scoredpairs_scaled_onehotencoded.pkl",
     )
 
 
