@@ -100,3 +100,27 @@ def get_node_name_to_id_override() -> Dict[str, int]:
             mapping[name] = node_id
     # Fallback to defaults if parsing failed
     return mapping or NODE_NAME_TO_ID_DEFAULT
+
+
+def get_output_names() -> List[str]:
+    """
+    Names for the model outputs, in order. Can be overridden via:
+      ML_AGENT_OUTPUT_NAMES=name1,name2,...,nameN
+    Defaults to 8 semantically meaningful targets matching the A1 translator.
+    """
+    raw = os.environ.get("ML_AGENT_OUTPUT_NAMES")
+    if raw:
+        names = [token.strip() for token in raw.split(",") if token.strip()]
+        if names:
+            return names
+    # Default to 8 outputs
+    return [
+        "node_cpu_tgt",
+        "node_energy_tgt",
+        "node_power_tgt",
+        "app_cpu_tgt",
+        "app_energy_tgt",
+        "app_power_tgt",
+        "app_latency_tgt",
+        "app_qps_tgt",
+    ]

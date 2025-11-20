@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from app.forecasting.run import ModelPredictor
+from app.config import get_output_names
 
 
 class PredictResponse(BaseModel):
+    columns: List[str]
     predictions: Dict[int, list[float]]
 
 
@@ -38,4 +40,14 @@ async def predict(request: Request) -> PredictResponse:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Inference failed: {exc}") from exc
 
-    return PredictResponse(predictions=result)
+    # Derive column names, honoring configured overrides and result width
+    any_row = next(iter(result.values()), [])
+    num_outputs = len(any_row)
+    configured = get_output_names()
+    if len(configured) >= num_outputs:
+        columns = configured[:num_outputs]
+    else:
+        # Fallback to generic names if configured list is shorter
+        columns = [f"y_{i}" for i in range(num_outputs)]
+
+    return PredictResponse(columns=columns, predictions=result)
