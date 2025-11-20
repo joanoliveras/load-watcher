@@ -391,11 +391,19 @@ func (s promClient) buildLatestQuery(host string, metric string) string {
 		if s.watchPodRx == "" {
 			return metric
 		}
-		// TS usually uses label "pod"
-		return fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
+		// Attach instance (node) label to TS metrics by joining with container metrics that carry instance.
+		// We take max by (pod,instance) to get a stable label set, then group_left to project instance onto TS series.
+		left := fmt.Sprintf("%s{%s=~\"%s\"}", metric, "pod", s.watchPodRx)
+		right := "max by (pod,instance) (container_cpu_usage_seconds_total)"
+		return fmt.Sprintf("sum by (instance) ((%s) * on(pod) group_left(instance) (%s))", left, right)
 	case locustCurrentUsers:
-		// Return a single scalar by summing across instances to avoid multiple host keys
-		return "sum(locust_current_users)"
+		// Replicate global users count to the TorchServe node(s) by joining against instances running the watched pod(s).
+		if s.watchPodRx == "" {
+			return "sum(locust_current_users)"
+		}
+		// Build a 0/1 mask per instance for nodes hosting the watched pod(s), then multiply by the scalar sum.
+		mask := fmt.Sprintf("count by (instance) (container_cpu_usage_seconds_total{%s=~\"%s\"}) > bool 0", "pod", s.watchPodRx)
+		return fmt.Sprintf("sum(locust_current_users) * on() group_left(instance) (%s)", mask)
 	case promKeplerHostPlatformJoulesIncr1m:
 		if host == allHosts {
 			return fmt.Sprintf("sum by (instance) (increase(%s[1m]))", promKeplerHostPlatformJoules)
@@ -527,7 +535,17 @@ func (s promClient) promResults2MetricMap(promresults model.Value, metric string
 					curMetric.Labels["namespace"] = string(nsLbl)
 				}
 			}
-			curHost := string(result.Metric[hostMetricKey])
+			// Prefer instance; fall back to common node labels if instance is missing.
+			curHost := ""
+			if v, ok := result.Metric[hostMetricKey]; ok && string(v) != "" {
+				curHost = string(v)
+			} else if v, ok := result.Metric["node"]; ok && string(v) != "" {
+				curHost = string(v)
+			} else if v, ok := result.Metric["nodename"]; ok && string(v) != "" {
+				curHost = string(v)
+			} else if v, ok := result.Metric["kubernetes_node"]; ok && string(v) != "" {
+				curHost = string(v)
+			}
 			curMetrics[curHost] = append(curMetrics[curHost], curMetric)
 		}
 	default:
