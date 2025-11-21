@@ -44,13 +44,6 @@ spec:
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 15
-          resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
 ---
 apiVersion: v1
 kind: Service
