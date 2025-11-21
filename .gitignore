@@ -1,0 +1,33 @@
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Go
+bin/
+dist/
+coverage*.out
+
+# Node/others (if any)
+node_modules/
+
+# Build artifacts
+*.log
+*.tar
+*.zip
+
+# Local env files
+.env
+.env.*
+.ssh
+
+
