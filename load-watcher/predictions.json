@@ -1,0 +1,17 @@
+{
+    "columns":
+        ["node_cpu_tgt","node_energy_tgt","node_power_tgt","app_cpu_tgt","app_energy_tgt","app_power_tgt","app_latency_tgt","app_qps_tgt"],
+    "source_host":"cloudskin-k8s-edge-worker-2.novalocal",
+    "source_id":4,
+    "target_map":{
+        "1":"cloudskin-k8s-edge-worker-1.novalocal",
+        "2":"cloudskin-k8s-control-plane-0.novalocal",
+        "3":"cloudskin-k8s-edge-worker-0.novalocal"},
+    "input_features":{
+        "1":{"torchserve_app_user":0.0,"torchserve_node_cpu_src":0.0,"torchserve_node_energy_src":0.0,"torchserve_node_power_src":8.92730892002099e-14,"torchserve_app_cpu_src":0.0,"torchserve_app_energy_src":0.03801794105082843,"torchserve_app_power_src":0.027586206896520374,"torchserve_app_latency_src":0.0,"torchserve_app_qps_src":0.01030927835051546,"node_id_src_1":0.0,"node_id_src_2":0.0,"node_id_src_3":0.0,"node_id_src_4":1.0,"node_id_tgt_1":1.0,"node_id_tgt_2":0.0,"node_id_tgt_3":0.0,"node_id_tgt_4":0.0},
+        "2":{"torchserve_app_user":0.0,"torchserve_node_cpu_src":0.0,"torchserve_node_energy_src":0.0,"torchserve_node_power_src":8.92730892002099e-14,"torchserve_app_cpu_src":0.0,"torchserve_app_energy_src":0.03801794105082843,"torchserve_app_power_src":0.027586206896520374,"torchserve_app_latency_src":0.0,"torchserve_app_qps_src":0.01030927835051546,"node_id_src_1":0.0,"node_id_src_2":0.0,"node_id_src_3":0.0,"node_id_src_4":1.0,"node_id_tgt_1":0.0,"node_id_tgt_2":1.0,"node_id_tgt_3":0.0,"node_id_tgt_4":0.0},
+        "3":{"torchserve_app_user":0.0,"torchserve_node_cpu_src":0.0,"torchserve_node_energy_src":0.0,"torchserve_node_power_src":8.92730892002099e-14,"torchserve_app_cpu_src":0.0,"torchserve_app_energy_src":0.03801794105082843,"torchserve_app_power_src":0.027586206896520374,"torchserve_app_latency_src":0.0,"torchserve_app_qps_src":0.01030927835051546,"node_id_src_1":0.0,"node_id_src_2":0.0,"node_id_src_3":0.0,"node_id_src_4":1.0,"node_id_tgt_1":0.0,"node_id_tgt_2":0.0,"node_id_tgt_3":1.0,"node_id_tgt_4":0.0}},
+    "predictions":{
+        "1":[486.0043504792689,2549.692435228349,45.45923831169376,-135.60007597009172,413.2859897031536,13.24876796086722,135.55572771309522,-9.828034250450408],
+        "2":[200.5351184330494,10237.907942424268,162.5452764580328,56.57182969678259,1840.0878205204601,29.51918477260044,132.7935825843818,12.821548378554247],
+        "3":[522.8508101592442,1387.7291464401255,25.95884421991495,-74.59874627141575,216.23401550184795,9.57074257155675,112.9024029294225,-6.518812816061157]}}
