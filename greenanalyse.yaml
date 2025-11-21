@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: greenanalyse
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: greenanalyse
+  namespace: greenanalyse
+  labels:
+    app: greenanalyse
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/hostname
+            operator: In
+            values:
+            - cloudskin-k8s-control-plane-0.novalocal
+  tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node-role.kubernetes.io/master"
+    operator: "Exists"
+    effect: "NoSchedule"
+  containers:
+  - name: load-watcher
+    image: registry.gitlab.bsc.es/datacentric-computing/cloudskin-project/cloudskin-registry/load-watcher:latest
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: METRICS_PROVIDER_NAME
+      value: Prometheus
+    - name: METRICS_PROVIDER_ADDRESS
+      value: http://prometheus-k8s.monitoring.svc:9090
+    - name: WATCH_POD_REGEX
+      value: torchserve-.*
+    - name: WATCH_GREENANALYSE
+      value: "true"
+    - name: WATCH_INCLUDE_TS
+      value: "true"
+    - name: WATCH_INCLUDE_USERS
+      value: "true"
+    ports:
+    - containerPort: 2020
+  - name: ml-agent
+    image: registry.gitlab.bsc.es/datacentric-computing/cloudskin-project/cloudskin-registry/ml-agent:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 8080
+    env:
+    - name: ML_AGENT_MODEL_PATH
+      value: /app/app/models/A1/MLP/mlp_multioutput_scoredpairs_scaled_onehotencoded.pkl
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 15
+  - name: orchestrator
+    image: registry.gitlab.bsc.es/datacentric-computing/cloudskin-project/cloudskin-registry/orchestrator:latest
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: ORCH_LOAD_WATCHER_URL
+      value: http://localhost:2020/watcher
+    - name: ORCH_ML_AGENT_URL
+      value: http://localhost:8080/predict
+    - name: ORCH_POLL_INTERVAL_SECONDS
+      value: "60"
+    - name: ORCH_REQUEST_TIMEOUT_SECONDS
+      value: "15"
+    - name: ORCH_LOG_LEVEL
+      value: INFO
+    ports:
+    - name: metrics
+      containerPort: 9105
+
